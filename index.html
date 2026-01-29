@@ -1,0 +1,45 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRC Sound Department</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --crc-red: #800000;
+            --crc-red-hover: #660000;
+            --crc-red-light: rgba(128, 0, 0, 0.1);
+            --crc-red-shadow: rgba(128, 0, 0, 0.2);
+        }
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Custom dynamic classes */
+        .bg-brand { background-color: var(--crc-red) !important; }
+        .text-brand { color: var(--crc-red) !important; }
+        .border-brand { border-color: var(--crc-red) !important; }
+        .hover-bg-brand:hover { background-color: var(--crc-red-hover) !important; }
+        .bg-brand-light { background-color: var(--crc-red-light) !important; }
+        .shadow-brand { shadow-color: var(--crc-red-shadow) !important; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
+    "jspdf": "https://esm.sh/jspdf@^2.5.1",
+    "jspdf-autotable": "https://esm.sh/jspdf-autotable@^3.8.2"
+  }
+}
+</script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "name": "CRC Sound Department App",
+  "description": "A comprehensive volunteer management and rostering system for the CRC Sound Department, featuring role-based access, attendance tracking, and availability management.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
