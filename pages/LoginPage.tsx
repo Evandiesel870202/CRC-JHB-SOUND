@@ -30,7 +30,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Dynamic config from DB
   const dbData = getData();
   const dbPastors = dbData.settings?.pastors || {};
 
@@ -58,8 +57,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const location = useLocation();
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search || location.hash.split('?')[1]);
-    if (params.get('invite') === 'true') {
+    // Enhanced param detection for both Hash and Search params
+    const hashParams = new URLSearchParams(location.hash.includes('?') ? location.hash.split('?')[1] : '');
+    const searchParams = new URLSearchParams(location.search);
+    
+    if (hashParams.get('invite') === 'true' || searchParams.get('invite') === 'true') {
       setStep('popia');
     }
   }, [location]);
@@ -223,10 +225,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <div className="bg-red-50 p-6 rounded-xl border border-red-100 mb-8 italic">
                 "I provide my information voluntarily and consent to CRC's Privacy Policy which is available on crcchurch.com"
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 mb-6">
                 <button onClick={handlePopiaReject} className="py-4 border-2 rounded-xl font-bold">Reject</button>
                 <button onClick={handlePopiaAccept} className="py-4 bg-[#800000] text-white rounded-xl font-bold">Accept</button>
               </div>
+              <button onClick={() => setStep('phone')} className="text-slate-400 text-sm font-bold hover:text-slate-600 transition-colors">
+                Already have an account? Login here
+              </button>
             </div>
           )}
 
@@ -364,7 +369,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               </section>
 
               {error && <div className="p-4 bg-red-50 text-red-700 font-bold text-sm flex gap-3"><AlertCircle size={20} />{error}</div>}
-              <button type="submit" className="w-full py-4 bg-[#800000] text-white rounded-xl font-black text-lg shadow-xl">Submit Registration</button>
+              <div className="space-y-4">
+                <button type="submit" className="w-full py-4 bg-[#800000] text-white rounded-xl font-black text-lg shadow-xl">Submit Registration</button>
+                <button type="button" onClick={() => setStep('phone')} className="w-full py-2 text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors text-center">
+                  Already registered? Switch to Login
+                </button>
+              </div>
             </form>
           )}
         </div>

@@ -26,7 +26,6 @@ const Volunteers: React.FC = () => {
     const updatedUser = localUsers.find(u => u.id === userId);
     if (!updatedUser) return;
     
-    // Simple validation
     if (!updatedUser.name || !updatedUser.surname) {
       alert("Name and Surname are required.");
       return;
@@ -38,10 +37,32 @@ const Volunteers: React.FC = () => {
   };
 
   const handleCopyInvite = () => {
-    const inviteUrl = `${window.location.origin}${window.location.pathname}#/login?invite=true`;
-    navigator.clipboard.writeText(inviteUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // Generate absolute URL using origin and pathname
+    const origin = window.location.origin;
+    let pathname = window.location.pathname;
+    
+    // Ensure pathname ends with a slash if it doesn't end with a filename
+    if (!pathname.endsWith('/') && !pathname.includes('.')) {
+      pathname += '/';
+    }
+    
+    const inviteUrl = `${origin}${pathname}#/login?invite=true`;
+    
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+      // Fallback for browsers that block clipboard API
+      const dummy = document.createElement('input');
+      document.body.appendChild(dummy);
+      dummy.value = inviteUrl;
+      dummy.select();
+      document.execCommand('copy');
+      document.body.removeChild(dummy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const tableHeaderStyle = "pb-4 px-4 font-black text-left whitespace-nowrap sticky top-0 bg-white z-10";
@@ -73,7 +94,7 @@ const Volunteers: React.FC = () => {
               }`}
             >
               {copied ? <Check size={16} /> : <Link size={16} />}
-              {copied ? 'Copied!' : 'Copy Invite Link'}
+              {copied ? 'Invite Link Copied!' : 'Copy Invite Link'}
             </button>
           </div>
         </div>

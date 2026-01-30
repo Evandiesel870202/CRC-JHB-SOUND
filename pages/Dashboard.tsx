@@ -48,10 +48,30 @@ const Dashboard: React.FC = () => {
   }, [user, db.roster]);
 
   const handleCopyInvite = () => {
-    const inviteUrl = `${window.location.origin}${window.location.pathname}#/login?invite=true`;
-    navigator.clipboard.writeText(inviteUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    const origin = window.location.origin;
+    let pathname = window.location.pathname;
+    
+    // Ensure pathname ends with a slash if it doesn't end with a filename
+    if (!pathname.endsWith('/') && !pathname.includes('.')) {
+      pathname += '/';
+    }
+    
+    const inviteUrl = `${origin}${pathname}#/login?invite=true`;
+    
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(err => {
+      // Fallback
+      const dummy = document.createElement('input');
+      document.body.appendChild(dummy);
+      dummy.value = inviteUrl;
+      dummy.select();
+      document.execCommand('copy');
+      document.body.removeChild(dummy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const isLeader = user && [Role.SUPER_ADMIN, Role.STAFF, Role.SECTION_LEADER].includes(user.role);
@@ -86,7 +106,6 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Roster Section */}
         <div className="space-y-6">
           <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <div className="flex items-center justify-between mb-4">
@@ -141,7 +160,6 @@ const Dashboard: React.FC = () => {
           )}
         </div>
 
-        {/* Announcements Section */}
         <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
