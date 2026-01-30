@@ -31,8 +31,8 @@ const Availability: React.FC = () => {
   const sundays = [...currentSundays, ...nextMonthSundays].filter(d => d >= new Date());
 
   const getTimesForCity = (city: City) => {
-    if (city === City.JHB) return ['09:30', '17:00'];
-    return ['08:30', '11:00', '17:00'];
+    if (city === City.JHB) return ['09:30', '18:00'];
+    return ['08:30', '11:00', '18:00'];
   };
 
   const adHocEvents = useMemo(() => {

@@ -93,7 +93,7 @@ const App: React.FC = () => {
               <Route 
                 path="/ad-hoc-events" 
                 element={
-                  <ProtectedRoute allowedRoles={[Role.SUPER_ADMIN, Role.STAFF, Role.SECTION_LEADER]}>
+                  <ProtectedRoute allowedRoles={[Role.SUPER_ADMIN, Role.STAFF]}>
                     <AdHocEvents />
                   </ProtectedRoute>
                 } 
@@ -101,7 +101,7 @@ const App: React.FC = () => {
               <Route 
                 path="/roster" 
                 element={
-                  <ProtectedRoute allowedRoles={[Role.SUPER_ADMIN, Role.STAFF, Role.SECTION_LEADER]}>
+                  <ProtectedRoute allowedRoles={[Role.SUPER_ADMIN, Role.STAFF]}>
                     <Roster />
                   </ProtectedRoute>
                 } 

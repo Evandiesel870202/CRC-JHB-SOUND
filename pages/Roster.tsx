@@ -98,7 +98,7 @@ const Roster: React.FC = () => {
       datesToRoster.forEach(date => {
         const dateStr = date.toISOString().split('T')[0];
         const entries = localRoster.filter(r => r.date === dateStr);
-        const slots = activeCity === City.JHB ? ['09:30', '17:00'] : ['08:30', '11:00', '17:00'];
+        const slots = activeCity === City.JHB ? ['09:30', '18:00'] : ['08:30', '11:00', '18:00'];
         
         slots.forEach(time => {
           const timeEntries = entries.filter(e => e.time === time);
@@ -152,7 +152,7 @@ const Roster: React.FC = () => {
 
       const dateStr = date.toISOString().split('T')[0];
       const times = filterType === 'Sunday' 
-        ? (activeCity === City.JHB ? ['09:30', '17:00'] : ['08:30', '11:00', '17:00'])
+        ? (activeCity === City.JHB ? ['09:30', '18:00'] : ['08:30', '11:00', '18:00'])
         : db.adHocEvents.find((e: any) => e.id === selectedEventId)?.sessions.filter((s: any) => s.date === dateStr).map((s: any) => s.time) || [];
 
       times.forEach((time, timeIdx) => {
@@ -285,7 +285,7 @@ const Roster: React.FC = () => {
           {datesToRoster.map(date => {
             const dateStr = date.toISOString().split('T')[0];
             const times = filterType === 'Sunday' 
-              ? (activeCity === City.JHB ? ['09:30', '17:00'] : ['08:30', '11:00', '17:00'])
+              ? (activeCity === City.JHB ? ['09:30', '18:00'] : ['08:30', '11:00', '18:00'])
               : db.adHocEvents.find((e: any) => e.id === selectedEventId)?.sessions.filter((s: any) => s.date === dateStr).map((s: any) => s.time) || [];
 
             return (
@@ -330,6 +330,7 @@ const Roster: React.FC = () => {
                               <span className="w-full sm:w-40 text-xs font-bold text-slate-500 uppercase">{station}</span>
                               <div className="flex-1">
                                 <select 
+                                  // Fix: Tailwind classes in template literal expression must be strings.
                                   className={`w-full p-2 bg-white border rounded-lg text-sm font-medium ${assigned ? 'border-green-300 bg-green-50 text-green-800' : 'border-slate-200'}`}
                                   value={assigned?.userId || ''}
                                   onChange={e => handleAssign(date, time, station, e.target.value)}

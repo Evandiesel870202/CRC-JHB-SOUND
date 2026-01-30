@@ -8,13 +8,24 @@ const Volunteers: React.FC = () => {
   const user = getAuthUser();
   const db = getData();
   const [searchTerm, setSearchTerm] = useState('');
+  const [cityFilter, setCityFilter] = useState<City | 'All'>('All');
   const [localUsers, setLocalUsers] = useState<User[]>(db.users);
   const [copied, setCopied] = useState(false);
 
   const filteredUsers = localUsers.filter(u => {
+    // 1. Role-based restriction: Non-super-admins ONLY see their own city
     if (user?.role !== Role.SUPER_ADMIN && u.city !== user?.city) return false;
+    
+    // 2. Super-admin city filter (if selection is not 'All')
+    if (user?.role === Role.SUPER_ADMIN && cityFilter !== 'All' && u.city !== cityFilter) return false;
+
+    // 3. Search term filter
     const fullName = (u.name + ' ' + u.surname).toLowerCase();
-    const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()) || u.cellphone.includes(searchTerm);
+    const matchesSearch = 
+      fullName.includes(searchTerm.toLowerCase()) || 
+      u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      u.cellphone.includes(searchTerm);
+      
     return matchesSearch;
   });
 
@@ -37,11 +48,9 @@ const Volunteers: React.FC = () => {
   };
 
   const handleCopyInvite = () => {
-    // Generate absolute URL using origin and pathname
     const origin = window.location.origin;
     let pathname = window.location.pathname;
     
-    // Ensure pathname ends with a slash if it doesn't end with a filename
     if (!pathname.endsWith('/') && !pathname.includes('.')) {
       pathname += '/';
     }
@@ -53,7 +62,6 @@ const Volunteers: React.FC = () => {
       setTimeout(() => setCopied(false), 2000);
     }).catch(err => {
       console.error('Failed to copy: ', err);
-      // Fallback for browsers that block clipboard API
       const dummy = document.createElement('input');
       document.body.appendChild(dummy);
       dummy.value = inviteUrl;
@@ -77,19 +85,36 @@ const Volunteers: React.FC = () => {
             <h1 className="text-2xl font-black text-slate-800">Volunteer Directory</h1>
             <p className="text-slate-500 text-sm">Full registry of all department members and their registration data</p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center flex-1 max-w-2xl justify-end">
+          <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center flex-1 max-w-3xl justify-end">
+            
+            {/* Super Admin City Filter */}
+            {user?.role === Role.SUPER_ADMIN && (
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 h-[46px] transition-all focus-within:ring-2 focus-within:ring-brand/20">
+                <Filter size={16} className="text-slate-400" />
+                <select 
+                  className="bg-transparent text-sm font-bold text-slate-600 outline-none h-full py-2 cursor-pointer"
+                  value={cityFilter}
+                  onChange={e => setCityFilter(e.target.value as any)}
+                >
+                  <option value="All">All Campuses</option>
+                  {Object.values(City).map(c => <option key={c} value={c}>{c} Campus</option>)}
+                </select>
+              </div>
+            )}
+
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 text-slate-400" size={18} />
               <input 
                 placeholder="Search by name, email or cell..." 
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand h-[46px]"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
             </div>
+
             <button 
               onClick={handleCopyInvite}
-              className={`px-4 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shrink-0 ${
+              className={`px-4 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shrink-0 h-[46px] ${
                 copied ? 'bg-green-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/10'
               }`}
             >
@@ -258,7 +283,7 @@ const Volunteers: React.FC = () => {
         )}
 
         <div className="mt-6 flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-          <span>Showing {filteredUsers.length} Volunteers</span>
+          <span>Showing {filteredUsers.length} Volunteers {user?.role === Role.SUPER_ADMIN && cityFilter !== 'All' ? `at ${cityFilter} Campus` : ''}</span>
           <div className="flex items-center gap-2">
             <Filter size={12} />
             <span>Scroll horizontally to view all fields</span>

@@ -61,7 +61,7 @@ export const initializeDB = () => {
         rolePermissions: {
           [Role.SUPER_ADMIN]: ['Dashboard', 'Availability', 'Create Ad Hoc', 'Roster', 'Attendance', 'Training', 'Feedback', 'Reports', 'Volunteers', 'Sound Docs', 'Announcement', 'Settings'],
           [Role.STAFF]: ['Dashboard', 'Availability', 'Create Ad Hoc', 'Roster', 'Attendance', 'Training', 'Feedback', 'Reports', 'Volunteers', 'Sound Docs', 'Announcement'],
-          [Role.SECTION_LEADER]: ['Dashboard', 'Availability', 'Create Ad Hoc', 'Roster', 'Attendance', 'Training', 'Feedback', 'Reports', 'Volunteers', 'Sound Docs', 'Announcement'],
+          [Role.SECTION_LEADER]: ['Dashboard', 'Availability', 'Attendance', 'Training', 'Feedback', 'Reports', 'Volunteers', 'Sound Docs', 'Announcement'],
           [Role.VOLUNTEER]: ['Dashboard', 'Availability', 'Attendance', 'Training', 'Sound Docs'],
           [Role.NEW_VOLUNTEER]: ['Dashboard', 'Availability', 'Attendance', 'Training', 'Sound Docs'],
           [Role.TWO_IC]: ['Dashboard', 'Availability', 'Attendance', 'Training', 'Volunteers', 'Sound Docs']

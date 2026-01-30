@@ -77,9 +77,12 @@ export interface AttendanceRecord {
   id: string;
   userId: string;
   date: string;
+  // Added time property to track the specific session/rehearsal time
+  time: string;
   type: 'Sunday' | 'Thursday' | 'AdHoc';
   status: 'Present' | 'Absent';
   capturedBy: string;
+  building?: 'North' | 'South'; // Supporting BFN auditorium filtering
 }
 
 export interface Announcement {
@@ -116,6 +119,7 @@ export interface SoundDocument {
   name: string;
   url: string;
   city: City | 'All';
+  category: 'General' | 'FOH' | 'Broadcast' | 'Monitors';
   uploadedBy: string;
 }
 
