@@ -20,15 +20,20 @@ import {
   Link as LinkIcon,
   AlertCircle,
   HelpCircle,
-  Clock
+  Clock,
+  Building2
 } from 'lucide-react';
 import { Role, City } from '../types';
 
 const Settings: React.FC = () => {
   const db = getData();
-  const [settings, setSettings] = useState(db.settings);
+  const [settings, setSettings] = useState(db.settings || {});
   const [activeCity, setActiveCity] = useState<City>(City.JHB);
+  const [infraCity, setInfraCity] = useState<City>(City.JHB);
   const [newPastor, setNewPastor] = useState('');
+  const [newAuditorium, setNewAuditorium] = useState('');
+  const [newTime, setNewTime] = useState<Record<string, string>>({});
+
   const logoInputRef = useRef<HTMLInputElement>(null);
   const csvUserImportRef = useRef<HTMLInputElement>(null);
   const csvAvailImportRef = useRef<HTMLInputElement>(null);
@@ -36,11 +41,15 @@ const Settings: React.FC = () => {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
 
+  // Persistence wrapper to ensure fresh DB state and local UI sync
   const handleUpdate = (field: string, value: any) => {
-    const updated = { ...settings, [field]: value };
-    setSettings(updated);
-    db.settings = updated;
-    saveData(db);
+    setSettings(prev => {
+      const next = { ...prev, [field]: value };
+      const currentDb = getData();
+      currentDb.settings = next;
+      saveData(currentDb);
+      return next;
+    });
 
     if (field === 'themeColor') {
       applyTheme(value);
@@ -100,8 +109,9 @@ const Settings: React.FC = () => {
           const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
           const updated = { ...settings, logo: base64, themeColor: hex };
           setSettings(updated);
-          db.settings = updated;
-          saveData(db);
+          const currentDb = getData();
+          currentDb.settings = updated;
+          saveData(currentDb);
           applyTheme(hex);
         } else {
           handleUpdate('logo', base64);
@@ -118,8 +128,8 @@ const Settings: React.FC = () => {
   };
 
   const handleExportAvail = () => {
-    const db = getData();
-    const csv = CSVService.generateAvailabilityTemplate(db.availability);
+    const dbData = getData();
+    const csv = CSVService.generateAvailabilityTemplate(dbData.availability);
     CSVService.downloadFile(csv, 'CRC_Sound_Availability_Database.csv');
   };
 
@@ -130,25 +140,25 @@ const Settings: React.FC = () => {
       reader.onload = (event) => {
         try {
           const csvText = event.target?.result as string;
-          const db = getData();
+          const dbData = getData();
           
           if (type === 'Users') {
             const parsed = CSVService.parseUsersCSV(csvText);
-            const currentUsers = [...db.users];
+            const currentUsers = [...dbData.users];
             parsed.forEach(newUser => {
               const index = currentUsers.findIndex(u => u.cellphone === newUser.cellphone);
               if (index >= 0) currentUsers[index] = { ...currentUsers[index], ...newUser };
               else currentUsers.push(newUser);
             });
-            db.users = currentUsers;
+            dbData.users = currentUsers;
             setImportStatus(`Imported ${parsed.length} volunteers!`);
           } else {
             const parsed = CSVService.parseAvailabilityCSV(csvText);
-            db.availability = parsed;
+            dbData.availability = parsed;
             setImportStatus(`Imported ${parsed.length} availability records!`);
           }
           
-          saveData(db);
+          saveData(dbData);
           setTimeout(() => setImportStatus(null), 5000);
         } catch (err) {
           setImportStatus("Error parsing CSV. Please use a clean export template.");
@@ -158,37 +168,155 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Infrastructure Management - Fixed with functional state updates for reliable deletion
+  const handleAddAuditorium = () => {
+    if (!newAuditorium) return;
+    setSettings(prev => {
+      const campuses = { ...(prev.campuses || {}) };
+      const cityData = { ...(campuses[infraCity] || { auditoriums: [] }) };
+      cityData.auditoriums = [
+        ...(cityData.auditoriums || []),
+        { name: newAuditorium.trim(), serviceTimes: [] }
+      ];
+      campuses[infraCity] = cityData;
+      const next = { ...prev, campuses };
+      
+      const currentDb = getData();
+      currentDb.settings = next;
+      saveData(currentDb);
+      return next;
+    });
+    setNewAuditorium('');
+  };
+
+  const handleRemoveAuditorium = (auditoriumName: string) => {
+    if (!confirm(`Are you sure you want to remove the ${auditoriumName} auditorium?`)) return;
+    setSettings(prev => {
+      const campuses = { ...(prev.campuses || {}) };
+      const cityData = { ...(campuses[infraCity] || { auditoriums: [] }) };
+      
+      cityData.auditoriums = (cityData.auditoriums || []).filter((a: any) => a.name !== auditoriumName);
+      
+      campuses[infraCity] = cityData;
+      const next = { ...prev, campuses };
+      
+      const currentDb = getData();
+      currentDb.settings = next;
+      saveData(currentDb);
+      return next;
+    });
+  };
+
+  const handleAddTime = (auditoriumName: string) => {
+    const time = newTime[auditoriumName];
+    if (!time) return;
+    setSettings(prev => {
+      const campuses = { ...(prev.campuses || {}) };
+      const cityData = { ...(campuses[infraCity] || { auditoriums: [] }) };
+
+      cityData.auditoriums = (cityData.auditoriums || []).map((a: any) => 
+        a.name === auditoriumName ? { ...a, serviceTimes: [...(a.serviceTimes || []), time].sort() } : a
+      );
+      
+      campuses[infraCity] = cityData;
+      const next = { ...prev, campuses };
+      
+      const currentDb = getData();
+      currentDb.settings = next;
+      saveData(currentDb);
+      return next;
+    });
+    setNewTime({ ...newTime, [auditoriumName]: '' });
+  };
+
+  const handleRemoveTime = (auditoriumName: string, timeToRemove: string) => {
+    setSettings(prev => {
+      const campuses = { ...(prev.campuses || {}) };
+      const cityData = { ...(campuses[infraCity] || { auditoriums: [] }) };
+
+      cityData.auditoriums = (cityData.auditoriums || []).map((a: any) => 
+        a.name === auditoriumName ? { ...a, serviceTimes: (a.serviceTimes || []).filter((t: string) => t !== timeToRemove) } : a
+      );
+      
+      campuses[infraCity] = cityData;
+      const next = { ...prev, campuses };
+      
+      const currentDb = getData();
+      currentDb.settings = next;
+      saveData(currentDb);
+      return next;
+    });
+  };
+
   const addDropdownItem = (list: 'ethnicities', item: string) => {
     if (!item) return;
-    const newList = [...settings.dropdowns[list], item];
-    const updated = { ...settings, dropdowns: { ...settings.dropdowns, [list]: newList } };
-    handleUpdate('dropdowns', updated.dropdowns);
+    setSettings(prev => {
+      const dropdowns = { ...(prev.dropdowns || {}) };
+      dropdowns[list] = [...(dropdowns[list] || []), item];
+      const next = { ...prev, dropdowns };
+      
+      const currentDb = getData();
+      currentDb.settings = next;
+      saveData(currentDb);
+      return next;
+    });
   };
 
   const removeDropdownItem = (list: 'ethnicities', item: string) => {
-    const newList = settings.dropdowns[list].filter((i: string) => i !== item);
-    const updated = { ...settings, dropdowns: { ...settings.dropdowns, [list]: newList } };
-    handleUpdate('dropdowns', updated.dropdowns);
+    setSettings(prev => {
+      const dropdowns = { ...(prev.dropdowns || {}) };
+      dropdowns[list] = (dropdowns[list] || []).filter((i: string) => i !== item);
+      const next = { ...prev, dropdowns };
+      
+      const currentDb = getData();
+      currentDb.settings = next;
+      saveData(currentDb);
+      return next;
+    });
   };
 
   const handleAddPastor = () => {
     if (!newPastor) return;
-    const cityPastors = settings.pastors[activeCity] || [];
-    const updatedPastors = { ...settings.pastors, [activeCity]: [...cityPastors, newPastor] };
-    handleUpdate('pastors', updatedPastors);
+    setSettings(prev => {
+      const pastors = { ...(prev.pastors || {}) };
+      pastors[activeCity] = [...(pastors[activeCity] || []), newPastor];
+      const next = { ...prev, pastors };
+      
+      const currentDb = getData();
+      currentDb.settings = next;
+      saveData(currentDb);
+      return next;
+    });
     setNewPastor('');
   };
 
   const handleRemovePastor = (city: City, name: string) => {
-    const updatedPastors = { ...settings.pastors, [city]: settings.pastors[city].filter((p: string) => p !== name) };
-    handleUpdate('pastors', updatedPastors);
+    setSettings(prev => {
+      const pastors = { ...(prev.pastors || {}) };
+      pastors[city] = (pastors[city] || []).filter((p: string) => p !== name);
+      const next = { ...prev, pastors };
+      
+      const currentDb = getData();
+      currentDb.settings = next;
+      saveData(currentDb);
+      return next;
+    });
   };
 
   const togglePermission = (role: Role, pathName: string) => {
-    const rolePaths = settings.rolePermissions[role] || [];
-    const updatedPaths = rolePaths.includes(pathName) ? rolePaths.filter((p: string) => p !== pathName) : [...rolePaths, pathName];
-    const updatedPerms = { ...settings.rolePermissions, [role]: updatedPaths };
-    handleUpdate('rolePermissions', updatedPerms);
+    setSettings(prev => {
+      const permissions = { ...(prev.rolePermissions || {}) };
+      const rolePaths = [...(permissions[role] || [])];
+      permissions[role] = rolePaths.includes(pathName) 
+        ? rolePaths.filter((p: string) => p !== pathName) 
+        : [...rolePaths, pathName];
+      const next = { ...prev, rolePermissions: permissions };
+      
+      const currentDb = getData();
+      currentDb.settings = next;
+      saveData(currentDb);
+      return next;
+    });
   };
 
   const menuPaths = ['Dashboard', 'Availability', 'Create Ad Hoc', 'Roster', 'Attendance', 'Training', 'Feedback', 'Reports', 'Volunteers', 'Sound Docs', 'Announcement', 'Settings'];
@@ -266,7 +394,6 @@ const Settings: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Volunteers Tab Management */}
               <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col gap-4">
                 <div className="flex items-center gap-2 mb-2">
                     <Database className="text-slate-400" size={18} />
@@ -283,7 +410,6 @@ const Settings: React.FC = () => {
                 <input type="file" ref={csvUserImportRef} className="hidden" accept=".csv" onChange={(e) => handleImportCSV(e, 'Users')} />
               </div>
 
-              {/* Availability Tab Management */}
               <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col gap-4">
                 <div className="flex items-center gap-2 mb-2">
                     <Clock className="text-slate-400" size={18} />
@@ -310,14 +436,96 @@ const Settings: React.FC = () => {
           </div>
         </section>
 
-        {/* Logo & Branding */}
+        {/* Campus Infrastructure Card */}
         <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 xl:col-span-2">
+          <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <Building2 className="text-brand" size={20} />
+            Campus Infrastructure
+          </h2>
+          
+          <div className="space-y-6">
+            <div className="flex bg-slate-100 p-1 rounded-xl max-w-sm">
+              {Object.values(City).map(city => (
+                <button 
+                  key={city} 
+                  onClick={() => setInfraCity(city)} 
+                  className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${infraCity === city ? 'bg-white text-brand shadow-sm' : 'text-slate-500'}`}
+                >
+                  {city} Campus
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(settings.campuses?.[infraCity]?.auditoriums || []).map((aud: any) => (
+                <div key={aud.name} className="p-5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col h-full">
+                  <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
+                    <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                      <Building2 size={16} className="text-slate-400" />
+                      {aud.name}
+                    </h3>
+                    <button 
+                      onClick={() => handleRemoveAuditorium(aud.name)} 
+                      className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                      title="Delete Auditorium"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 mb-4 space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Sunday Service Times</label>
+                    <div className="flex flex-wrap gap-2">
+                      {(aud.serviceTimes || []).map((time: string) => (
+                        <div key={time} className="px-2 py-1 bg-white border border-slate-200 rounded text-[10px] font-black text-slate-600 flex items-center gap-1 shadow-sm">
+                          {time}
+                          <button onClick={() => handleRemoveTime(aud.name, time)} className="text-slate-300 hover:text-red-500">
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input 
+                      type="time" 
+                      className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                      value={newTime[aud.name] || ''}
+                      onChange={e => setNewTime({ ...newTime, [aud.name]: e.target.value })}
+                    />
+                    <button onClick={() => handleAddTime(aud.name)} className="p-2 bg-slate-900 text-white rounded-lg hover:opacity-90">
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <div className="p-5 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col justify-center items-center text-center gap-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Add New Auditorium</label>
+                <div className="flex gap-2 w-full">
+                  <input 
+                    className="flex-1 p-2.5 bg-white border border-slate-200 rounded-lg text-sm" 
+                    placeholder="e.g. West Wing..." 
+                    value={newAuditorium}
+                    onChange={e => setNewAuditorium(e.target.value)}
+                  />
+                  <button onClick={handleAddAuditorium} className="p-2.5 bg-brand text-white rounded-lg shadow-lg shadow-brand/20">
+                    <Plus size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Logo & Branding */}
+        <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 xl:col-span-1">
           <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
             <ImageIcon className="text-brand" size={20} />
             Department Branding
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-2">
+          <div className="space-y-6">
               <div 
                 onClick={() => logoInputRef.current?.click()}
                 className="relative h-48 w-full border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-brand hover:bg-slate-50 transition-all group overflow-hidden"
@@ -341,9 +549,7 @@ const Settings: React.FC = () => {
                 </div>
                 <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
               </div>
-            </div>
             
-            <div className="space-y-6">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-widest">Global Accent Color</label>
                 <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
@@ -357,7 +563,6 @@ const Settings: React.FC = () => {
                   <input type="text" className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono uppercase" value={settings.themeColor} onChange={e => handleUpdate('themeColor', e.target.value)} />
                 </div>
               </div>
-            </div>
           </div>
         </section>
 
@@ -376,7 +581,7 @@ const Settings: React.FC = () => {
               ))}
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-              {(settings.pastors[activeCity] || []).map((name: string) => (
+              {(settings.pastors?.[activeCity] || []).map((name: string) => (
                 <div key={name} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group">
                   <span className="text-sm font-semibold text-slate-700">{name}</span>
                   <button onClick={() => handleRemovePastor(activeCity, name)} className="text-slate-300 hover:text-red-500 transition-colors">
@@ -402,7 +607,7 @@ const Settings: React.FC = () => {
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-widest">Ethnicity Options</label>
               <div className="flex flex-wrap gap-2 mb-3">
-                {settings.dropdowns.ethnicities.map((e: string) => (
+                {(settings.dropdowns?.ethnicities || []).map((e: string) => (
                   <span key={e} className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-black uppercase rounded-full border border-slate-200">
                     {e} <button onClick={() => removeDropdownItem('ethnicities', e)} className="hover:text-red-500"><X size={10} /></button>
                   </span>
@@ -445,7 +650,7 @@ const Settings: React.FC = () => {
                       <span className="text-sm font-bold text-slate-700">{path}</span>
                     </td>
                     {Object.values(Role).map(role => {
-                      const hasAccess = settings.rolePermissions[role]?.includes(path);
+                      const hasAccess = settings.rolePermissions?.[role]?.includes(path);
                       return (
                         <td key={role} className="py-3 px-2 text-center">
                           <button onClick={() => togglePermission(role, path)} className={`inline-flex items-center justify-center p-1.5 rounded transition-all ${hasAccess ? 'text-brand bg-brand-light' : 'text-slate-200 hover:text-slate-400'}`}>

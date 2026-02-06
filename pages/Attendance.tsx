@@ -14,7 +14,8 @@ import {
   ChevronDown,
   ChevronUp,
   Save,
-  MapPin
+  MapPin,
+  Building2
 } from 'lucide-react';
 
 const Attendance: React.FC = () => {
@@ -31,6 +32,11 @@ const Attendance: React.FC = () => {
   const isLeader = useMemo(() => {
     return [Role.SUPER_ADMIN, Role.STAFF, Role.SECTION_LEADER, Role.TWO_IC].includes(user?.role!) || user?.adminEnabled;
   }, [user]);
+
+  // Fetch auditoriums for selected city
+  const cityAuditoriums = useMemo(() => {
+    return db.settings?.campuses?.[selectedCity]?.auditoriums || [];
+  }, [db.settings?.campuses, selectedCity]);
 
   // Generate Thursday and Sunday dates for the selected month
   const weekDatesToDisplay = useMemo(() => {
@@ -55,11 +61,6 @@ const Attendance: React.FC = () => {
     return db.adHocEvents.filter((e: AdHocEvent) => e.city === selectedCity);
   }, [db.adHocEvents, selectedCity]);
 
-  const getTimesForCity = (city: City) => {
-    if (city === City.JHB) return ['09:30', '18:00'];
-    return ['08:30', '11:00', '18:00'];
-  };
-
   const monthName = new Date(new Date().getFullYear(), selectedMonth, 1).toLocaleString('default', { month: 'long' });
 
   return (
@@ -77,7 +78,7 @@ const Attendance: React.FC = () => {
                 {Object.values(City).map(c => (
                   <button 
                     key={c}
-                    onClick={() => { setSelectedCity(c); setActiveSession(null); }}
+                    onClick={() => { setSelectedCity(c as City); setActiveSession(null); }}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${selectedCity === c ? 'bg-white text-brand shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                   >
                     {c}
@@ -102,7 +103,6 @@ const Attendance: React.FC = () => {
           </div>
         </div>
 
-        {/* Month Selector */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {view === 'Standard' ? (
             <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100 col-span-1">
@@ -162,21 +162,23 @@ const Attendance: React.FC = () => {
 
                     <div className="flex flex-wrap gap-2">
                       {isSunday ? (
-                        getTimesForCity(selectedCity).map(time => {
-                          const isSessActive = activeSession?.date === dateStr && activeSession?.time === time;
-                          return (
-                            <button
-                              key={time}
-                              onClick={() => setActiveSession(isSessActive ? null : { date: dateStr, time, type: 'Sunday' })}
-                              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 ${
-                                isSessActive ? 'bg-brand text-white border-brand shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-brand/30'
-                              }`}
-                            >
-                              {time}
-                              {isLeader && (isSessActive ? <ChevronUp size={14}/> : <ChevronDown size={14}/>)}
-                            </button>
-                          );
-                        })
+                        cityAuditoriums.flatMap((aud: any) => 
+                          aud.serviceTimes.map((time: string) => {
+                            const isSessActive = activeSession?.date === dateStr && activeSession?.time === `${time} (${aud.name})`;
+                            return (
+                              <button
+                                key={`${aud.name}-${time}`}
+                                onClick={() => setActiveSession(isSessActive ? null : { date: dateStr, time: `${time} (${aud.name})`, type: 'Sunday' })}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 ${
+                                  isSessActive ? 'bg-brand text-white border-brand shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-brand/30'
+                                }`}
+                              >
+                                {time} <span className="opacity-50 font-medium">@{aud.name}</span>
+                                {isLeader && (isSessActive ? <ChevronUp size={14}/> : <ChevronDown size={14}/>)}
+                              </button>
+                            );
+                          })
+                        )
                       ) : (
                         <button
                           onClick={() => setActiveSession(isActive ? null : { date: dateStr, time: 'Thursday Rehearsal', type: 'Thursday' })}
@@ -268,16 +270,18 @@ const TeamCapturePanel: React.FC<{
   const user = getAuthUser();
   const db = getData();
   const [searchTerm, setSearchTerm] = useState('');
-  const [buildingFilter, setBuildingFilter] = useState<'North' | 'South' | 'All'>(city === City.BFN ? 'All' : 'All');
+  
+  // Extract auditorium name from session.time if it exists
+  const sessionAuditorium = session.time.includes('(') ? session.time.match(/\(([^)]+)\)/)?.[1] : null;
+  const [buildingFilter, setBuildingFilter] = useState<'All' | string>(sessionAuditorium || 'All');
   
   // Track status changes locally before saving
-  const [sessionAttendance, setSessionAttendance] = useState<Record<string, { status: 'Present' | 'Absent', building?: 'North' | 'South' } | undefined>>({});
+  const [sessionAttendance, setSessionAttendance] = useState<Record<string, { status: 'Present' | 'Absent', building?: string } | undefined>>({});
 
   useEffect(() => {
     // Initialize local state from existing DB records
-    const initial: Record<string, { status: 'Present' | 'Absent', building?: 'North' | 'South' } | undefined> = {};
+    const initial: Record<string, { status: 'Present' | 'Absent', building?: string } | undefined> = {};
     const currentDb = getData();
-    // Use proper array check and explicit casting to fix "unknown" type error on currentDb.attendance items
     if (currentDb.attendance && Array.isArray(currentDb.attendance)) {
       currentDb.attendance.forEach((a: AttendanceRecord) => {
         if (a.date === session.date && a.time === session.time) {
@@ -292,8 +296,8 @@ const TeamCapturePanel: React.FC<{
     return db.users.filter((u: User) => {
       if (u.city !== city) return false;
       
-      // If BFN and auditorium filter is active, filter by user's assigned building
-      if (city === City.BFN && buildingFilter !== 'All') {
+      // Filter by building if specified in session or if multiple auditoriums exist for this campus
+      if (buildingFilter !== 'All') {
         if (u.building !== buildingFilter) return false;
       }
 
@@ -302,7 +306,6 @@ const TeamCapturePanel: React.FC<{
     });
   }, [db.users, city, searchTerm, buildingFilter]);
 
-  // Determine availability indicators (Y)
   const availableUserIds = useMemo(() => {
     return new Set(
       db.availability
@@ -317,15 +320,12 @@ const TeamCapturePanel: React.FC<{
       const updated = { ...prev };
       
       if (current?.status === newStatus) {
-        // Toggle off if same button clicked
         delete updated[userId];
       } else {
-        // Find the user to get their building
         const v = db.users.find((u: User) => u.id === userId);
-        // Set to new status
         updated[userId] = { 
           status: newStatus, 
-          building: city === City.BFN ? (v?.building || (buildingFilter !== 'All' ? buildingFilter : 'North')) : undefined 
+          building: sessionAuditorium || v?.building || (buildingFilter !== 'All' ? buildingFilter : undefined)
         };
       }
       return updated;
@@ -334,14 +334,10 @@ const TeamCapturePanel: React.FC<{
 
   const handleFinalSave = () => {
     const dbData = getData();
-    
-    // 1. Remove all current records for this session to prepare for clean overwrite
     dbData.attendance = dbData.attendance.filter((a: AttendanceRecord) => 
       !(a.date === session.date && a.time === session.time)
     );
 
-    // 2. Map local state to persistent database format
-    // Fix: Cast entries values to avoid "unknown" type error
     (Object.entries(sessionAttendance) as [string, any][]).forEach(([userId, data]) => {
       if (data) {
         dbData.attendance.push({
@@ -357,11 +353,12 @@ const TeamCapturePanel: React.FC<{
       }
     });
 
-    // 3. Persist to storage
     saveData(dbData);
     alert('Attendance data has been saved.');
     onClose();
   };
+
+  const campusAuditoriums = db.settings?.campuses?.[city]?.auditoriums || [];
 
   return (
     <div className="space-y-4">
@@ -372,15 +369,21 @@ const TeamCapturePanel: React.FC<{
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-2xl justify-end">
-          {city === City.BFN && (
+          {campusAuditoriums.length > 1 && !sessionAuditorium && (
              <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
-               {(['All', 'North', 'South'] as const).map(b => (
+               <button 
+                 onClick={() => setBuildingFilter('All')}
+                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${buildingFilter === 'All' ? 'bg-white text-brand shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+               >
+                 All Auditoriums
+               </button>
+               {campusAuditoriums.map((b: any) => (
                  <button 
-                   key={b}
-                   onClick={() => setBuildingFilter(b)}
-                   className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${buildingFilter === b ? 'bg-white text-brand shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                   key={b.name}
+                   onClick={() => setBuildingFilter(b.name)}
+                   className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${buildingFilter === b.name ? 'bg-white text-brand shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                  >
-                   {b === 'All' ? 'All Auditoriums' : b}
+                   {b.name}
                  </button>
                ))}
              </div>
@@ -416,7 +419,7 @@ const TeamCapturePanel: React.FC<{
                     {isScheduled && (
                       <span className="bg-slate-800 text-white text-[7px] font-black px-1 rounded uppercase tracking-tighter shrink-0">Scheduled</span>
                     )}
-                    {city === City.BFN && v.building && (
+                    {v.building && (
                       <span className="bg-slate-100 text-slate-500 text-[7px] font-black px-1 rounded uppercase tracking-tighter shrink-0 flex items-center gap-0.5">
                         <MapPin size={8}/> {v.building}
                       </span>
@@ -449,7 +452,6 @@ const TeamCapturePanel: React.FC<{
 
       <div className="pt-4 border-t border-slate-100 flex flex-col gap-3">
         <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
-          {/* Fix: Cast Object.values to any[] to fix "unknown" type error on .filter parameter */}
           <span className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-green-500"/> {(Object.values(sessionAttendance) as any[]).filter(s => s?.status === 'Present').length} Present</span>
           <span className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-red-500"/> {(Object.values(sessionAttendance) as any[]).filter(s => s?.status === 'Absent').length} Absent</span>
         </div>

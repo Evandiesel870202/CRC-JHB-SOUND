@@ -53,6 +53,24 @@ export const initializeDB = () => {
           ethnicities: ['Black', 'White', 'Coloured', 'Indian', 'Asian', 'Other'],
           roles: [Role.STAFF, Role.SECTION_LEADER, Role.VOLUNTEER, Role.NEW_VOLUNTEER]
         },
+        campuses: {
+          [City.JHB]: {
+            auditoriums: [
+              { name: 'Main Sanctuary', serviceTimes: ['09:30', '18:00'] }
+            ]
+          },
+          [City.BFN]: {
+            auditoriums: [
+              { name: 'North', serviceTimes: ['08:30', '11:00', '18:00'] },
+              { name: 'South', serviceTimes: ['08:30', '11:00', '18:00'] }
+            ]
+          },
+          [City.PTA]: {
+            auditoriums: [
+              { name: 'Main Sanctuary', serviceTimes: ['08:30', '11:00', '18:00'] }
+            ]
+          }
+        },
         pastors: {
           [City.JHB]: ['Ps. John Meyer', 'Ps. Sarah Smith', 'Ps. David Botha'],
           [City.BFN]: ['Ps. Andre van Niekerk', 'Ps. Petro Schoeman'],
